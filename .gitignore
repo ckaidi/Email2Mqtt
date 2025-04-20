@@ -1,0 +1,4 @@
+ca.crt
+__pycache__
+.vscode
+temp.*

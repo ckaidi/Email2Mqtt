@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  email2mqtt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email2mqtt
+    environment:
+      - TZ=Asia/Shanghai
+      - CHECK_INTERVAL=5
+      # 邮箱配置
+      - IMAP_SERVER=imap.qq.com
+      - EMAIL_USERNAME=your_email@qq.com
+      - EMAIL_PASSWORD=your_email_password
+      # MQTT配置
+      - MQTT_BROKER=your_mqtt_broker
+      - MQTT_PORT=8883
+      - MQTT_TOPIC=email
+      # MQTT SSL配置
+      - MQTT_SSL=True
+      - MQTT_SSL_CA_CERTS=ca.crt
+      # MQTT认证配置
+      - MQTT_USERNAME=your_mqtt_username
+      - MQTT_PASSWORD=your_mqtt_password
+    volumes:
+      - ./ca.crt:/app/ca.crt 
+    restart: unless-stopped

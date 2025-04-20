@@ -268,7 +268,7 @@ def main():
                         mqtt_client.publish(MQTT_TOPIC, message)
                         
                         # 将邮件ID写入Redis
-                        # read.append(email_id)
+                        read.append(email_id)
                     else:
                         print(f"邮件ID {email_id} 已存在，跳过处理")
                     

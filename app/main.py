@@ -279,6 +279,9 @@ def main():
                 mail.logout()
             
             time.sleep(CHECK_INTERVAL)
+            # 打印当前时间
+            current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            print(f"当前时间: {current_time}")
         except Exception as e:
             print(f"程序异常: {e}")
 
@@ -289,3 +292,4 @@ if __name__ == '__main__':
         print("程序退出")
     except Exception as e:
         print(f"程序异常退出: {e}")
+    print("程序退出")

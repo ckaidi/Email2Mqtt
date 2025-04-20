@@ -230,56 +230,61 @@ def main():
     mqtt_client.loop_start()  # 启动网络循环
     
     while True:
-        if HEALTHY_URL != '':
-            try:
-                # 发送心跳ping
-                requests.get(HEALTHY_URL, timeout=5)
-            except Exception as e:
-                print(f"心跳ping失败: {e}")
+        try:
+            if HEALTHY_URL != '':
+                try:
+                    # 发送心跳ping
+                    requests.get(HEALTHY_URL, timeout=5)
+                except Exception as e:
+                    print(f"心跳ping失败: {e}")
 
-        mail = connect_to_imap()
-        if mail:
-            new_emails = check_new_emails(mail, last_uid)
-            if new_emails:
-                print(f"发现 {len(new_emails)} 封新邮件:")
-                for email_info in new_emails:
-                    email_id = email_info['id'].decode('utf-8') if isinstance(email_info['id'], bytes) else email_info['id']
-                    
-                    if email_id not in read:
-                        sender_info = parse_sender(email_info['from'])
-                        print(f"邮件ID: {email_id}")
-                        print(f"发件人名称: {sender_info['name']}")
-                        print(f"发件人邮箱: {sender_info['email']}")
-                        print(f"主题: {email_info['subject']}")
-                        print("-" * 50)
+            mail = connect_to_imap()
+            if mail:
+                new_emails = check_new_emails(mail, last_uid)
+                if new_emails:
+                    print(f"发现 {len(new_emails)} 封新邮件:")
+                    for email_info in new_emails:
+                        email_id = email_info['id'].decode('utf-8') if isinstance(email_info['id'], bytes) else email_info['id']
                         
-                        # 发送MQTT消息
-                        # 构建包含邮件内容的消息
-                        message = f"{sender_info['name']}\n{email_info['subject']}\n"
-                        
-                        # 添加纯文本内容（如果有）
-                        if email_info['content']['text']:
-                            message += email_info['content']['text']
-                        # 如果没有纯文本但有HTML内容，也添加提示
-                        elif email_info['content']['html']:
-                            # message += "[邮件包含HTML内容]"
-                            message += email_info['content']['html']
+                        if email_id not in read:
+                            sender_info = parse_sender(email_info['from'])
+                            print(f"邮件ID: {email_id}")
+                            print(f"发件人名称: {sender_info['name']}")
+                            print(f"发件人邮箱: {sender_info['email']}")
+                            print(f"主题: {email_info['subject']}")
+                            print("-" * 50)
                             
-                        mqtt_client.publish(MQTT_TOPIC, message)
+                            # 发送MQTT消息
+                            # 构建包含邮件内容的消息
+                            message = f"{sender_info['name']}\n{email_info['subject']}\n"
+                            
+                            # 添加纯文本内容（如果有）
+                            if email_info['content']['text']:
+                                message += email_info['content']['text']
+                            # 如果没有纯文本但有HTML内容，也添加提示
+                            elif email_info['content']['html']:
+                                # message += "[邮件包含HTML内容]"
+                                message += email_info['content']['html']
+                                
+                            mqtt_client.publish(MQTT_TOPIC, message)
+                            
+                            # 将邮件ID写入Redis
+                            read.append(email_id)
+                        else:
+                            print(f"邮件ID {email_id} 已存在，跳过处理")
                         
-                        # 将邮件ID写入Redis
-                        read.append(email_id)
-                    else:
-                        print(f"邮件ID {email_id} 已存在，跳过处理")
-                    
-                last_uid = new_emails[-1]['id']
+                    last_uid = new_emails[-1]['id']
+                
+                mail.logout()
             
-            mail.logout()
-        
-        time.sleep(CHECK_INTERVAL)
+            time.sleep(CHECK_INTERVAL)
+        except Exception as e:
+            print(f"程序异常: {e}")
 
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
         print("程序退出")
+    except Exception as e:
+        print(f"程序异常退出: {e}")

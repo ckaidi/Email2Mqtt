@@ -1,5 +1,6 @@
 import imaplib
 import email
+from re import M
 import time
 from email.header import decode_header
 import paho.mqtt.client as mqtt
@@ -225,10 +226,6 @@ def main():
             #keyfile=MQTT_SSL_KEYFILE
         )
     
-    # 开始连接
-    mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
-    mqtt_client.loop_start()  # 启动网络循环
-    
     while True:
         try:
             if HEALTHY_URL != '':
@@ -242,6 +239,9 @@ def main():
             if mail:
                 new_emails = check_new_emails(mail, last_uid)
                 if new_emails:
+                    # 开始连接
+                    mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
+                    # mqtt_client.loop_start()  # 启动网络循环
                     print(f"发现 {len(new_emails)} 封新邮件:")
                     for email_info in new_emails:
                         email_id = email_info['id'].decode('utf-8') if isinstance(email_info['id'], bytes) else email_info['id']
@@ -272,7 +272,8 @@ def main():
                             read.append(email_id)
                         else:
                             print(f"邮件ID {email_id} 已存在，跳过处理")
-                        
+                    mqtt_client.disconnect()
+                    # mqtt_client.loop_stop()  # 停止网络循环    
                     last_uid = new_emails[-1]['id']
                 
                 mail.logout()

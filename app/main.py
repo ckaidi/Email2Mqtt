@@ -1,6 +1,7 @@
 import imaplib  # 用于IMAP邮件操作 / For IMAP mail operations
 import email  # 用于解析邮件 / For parsing emails
 from re import M  # 正则表达式模块 / Regular expression module
+import sys
 import time  # 时间相关操作 / Time-related operations
 import socket  # 网络套接字操作 / Network socket operations
 from email.header import decode_header  # 解码邮件头 / Decode email headers
@@ -337,13 +338,14 @@ def main():
 
             # 连接到邮箱服务器 / Connect to mail server
             mail = connect_to_imap()
+            # 连接到MQTT代理 / Connect to MQTT broker
+            mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
+            mqtt_client.loop_start()  # 启动网络循环 / Start network loop
             if mail:
                 # 检查新邮件 / Check for new emails
                 new_emails = check_new_emails(mail, last_uid)
                 # 如果有新邮件，处理并发送到MQTT / If there are new emails, process and send to MQTT
                 if new_emails:
-                    # 连接到MQTT代理 / Connect to MQTT broker
-                    mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
                     # mqtt_client.loop_start()  # 启动网络循环 / Start network loop
                     # 打印发现的新邮件数量 / Print number of new emails found
                     print(f"发现 {len(new_emails)} 封新邮件:")
@@ -387,7 +389,6 @@ def main():
                         else:
                             print(f"邮件ID {email_id} 已存在，跳过处理")
                     # 断开MQTT连接 / Disconnect from MQTT
-                    mqtt_client.disconnect()
                     # mqtt_client.loop_stop()  # 停止网络循环 / Stop network loop    
                     
                     # 更新最后处理的邮件ID / Update last processed email ID
@@ -404,9 +405,11 @@ def main():
             # 打印当前时间 / Print current time
             current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             print(f"当前时间: {current_time}")
+            sys.stdout.flush()
         # 捕获并记录异常 / Catch and log exceptions
         except Exception as e:
             print(f"程序异常: {e}")  # 异常日志 / Exception log
+            mqtt_client.disconnect()
 
 if __name__ == '__main__':
     try:

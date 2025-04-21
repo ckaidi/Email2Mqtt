@@ -326,6 +326,9 @@ def main():
             #keyfile=MQTT_SSL_KEYFILE  # 客户端密钥 / Client key
         )
     
+    # 连接到MQTT代理 / Connect to MQTT broker
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
+    mqtt_client.loop_start()  # 启动网络循环 / Start network loop
     while True:
         try:
             # 健康检查 / Health check
@@ -338,9 +341,6 @@ def main():
 
             # 连接到邮箱服务器 / Connect to mail server
             mail = connect_to_imap()
-            # 连接到MQTT代理 / Connect to MQTT broker
-            mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
-            mqtt_client.loop_start()  # 启动网络循环 / Start network loop
             if mail:
                 # 检查新邮件 / Check for new emails
                 new_emails = check_new_emails(mail, last_uid)
@@ -409,7 +409,7 @@ def main():
         # 捕获并记录异常 / Catch and log exceptions
         except Exception as e:
             print(f"程序异常: {e}")  # 异常日志 / Exception log
-            mqtt_client.disconnect()
+    # mqtt_client.disconnect()
 
 if __name__ == '__main__':
     try:

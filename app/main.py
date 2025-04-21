@@ -329,6 +329,15 @@ def main():
     # 连接到MQTT代理 / Connect to MQTT broker
     mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
     mqtt_client.loop_start()  # 启动网络循环 / Start network loop
+    
+    # 连接到邮箱服务器 / Connect to mail server
+    mail = connect_to_imap()
+    if not mail:
+        print("初始邮箱连接失败，程序退出")  # 初始连接失败提示 / Initial connection failure prompt
+        return
+        
+    print("邮箱连接成功，开始监听新邮件")  # 连接成功提示 / Connection success prompt
+    
     while True:
         try:
             # 健康检查 / Health check
@@ -339,66 +348,68 @@ def main():
                 except Exception as e:
                     print(f"心跳ping失败: {e}")  # 心跳失败日志 / Heartbeat failure log
 
-            # 连接到邮箱服务器 / Connect to mail server
-            mail = connect_to_imap()
-            if mail:
-                # 检查新邮件 / Check for new emails
-                new_emails = check_new_emails(mail, last_uid)
-                # 如果有新邮件，处理并发送到MQTT / If there are new emails, process and send to MQTT
-                if new_emails:
-                    # mqtt_client.loop_start()  # 启动网络循环 / Start network loop
-                    # 打印发现的新邮件数量 / Print number of new emails found
-                    print(f"发现 {len(new_emails)} 封新邮件:")
+            # 检查邮箱连接是否有效 / Check if mailbox connection is valid
+            try:
+                # 尝试执行一个简单的IMAP命令来检查连接 / Try to execute a simple IMAP command to check connection
+                mail.noop()
+            except Exception as e:
+                print(f"邮箱连接已断开，尝试重新连接: {e}")  # 连接断开提示 / Connection lost prompt
+                mail = connect_to_imap()
+                if not mail:
+                    print("重新连接失败，等待下一次尝试")  # 重连失败提示 / Reconnection failure prompt
+                    time.sleep(CHECK_INTERVAL)
+                    continue
+                print("邮箱重新连接成功")  # 重连成功提示 / Reconnection success prompt
+            
+            # 检查新邮件 / Check for new emails
+            new_emails = check_new_emails(mail, last_uid)
+            # 如果有新邮件，处理并发送到MQTT / If there are new emails, process and send to MQTT
+            if new_emails:
+                # 打印发现的新邮件数量 / Print number of new emails found
+                print(f"发现 {len(new_emails)} 封新邮件:")
+                
+                # 处理每封新邮件 / Process each new email
+                for email_info in new_emails:
+                    # 获取邮件ID，确保是字符串格式 / Get email ID, ensure it's in string format
+                    email_id = email_info['id'].decode('utf-8') if isinstance(email_info['id'], bytes) else email_info['id']
                     
-                    # 处理每封新邮件 / Process each new email
-                    for email_info in new_emails:
-                        # 获取邮件ID，确保是字符串格式 / Get email ID, ensure it's in string format
-                        email_id = email_info['id'].decode('utf-8') if isinstance(email_info['id'], bytes) else email_info['id']
+                    # 检查邮件是否已处理过 / Check if email has been processed before
+                    if email_id not in read:
+                        # 解析发件人信息 / Parse sender information
+                        sender_info = parse_sender(email_info['from'])
                         
-                        # 检查邮件是否已处理过 / Check if email has been processed before
-                        if email_id not in read:
-                            # 解析发件人信息 / Parse sender information
-                            sender_info = parse_sender(email_info['from'])
+                        # 打印邮件信息 / Print email information
+                        print(f"邮件ID: {email_id}")
+                        print(f"发件人名称: {sender_info['name']}")
+                        print(f"发件人邮箱: {sender_info['email']}")
+                        print(f"主题: {email_info['subject']}")
+                        print("-" * 50)
+                        
+                        # 构建MQTT消息 / Build MQTT message
+                        # 包含发件人名称和邮件主题 / Include sender name and email subject
+                        message = f"{sender_info['name']}\n{email_info['subject']}\n"
+                        
+                        # 添加邮件内容 / Add email content
+                        # 优先使用纯文本内容 / Prefer plain text content
+                        if email_info['content']['text']:
+                            message += email_info['content']['text']
+                        # 如果没有纯文本但有HTML内容，使用HTML内容 / If no plain text but has HTML content, use HTML
+                        elif email_info['content']['html']:
+                            # message += "[邮件包含HTML内容]" / [Email contains HTML content]
+                            message += email_info['content']['html']
                             
-                            # 打印邮件信息 / Print email information
-                            print(f"邮件ID: {email_id}")
-                            print(f"发件人名称: {sender_info['name']}")
-                            print(f"发件人邮箱: {sender_info['email']}")
-                            print(f"主题: {email_info['subject']}")
-                            print("-" * 50)
-                            
-                            # 构建MQTT消息 / Build MQTT message
-                            # 包含发件人名称和邮件主题 / Include sender name and email subject
-                            message = f"{sender_info['name']}\n{email_info['subject']}\n"
-                            
-                            # 添加邮件内容 / Add email content
-                            # 优先使用纯文本内容 / Prefer plain text content
-                            if email_info['content']['text']:
-                                message += email_info['content']['text']
-                            # 如果没有纯文本但有HTML内容，使用HTML内容 / If no plain text but has HTML content, use HTML
-                            elif email_info['content']['html']:
-                                # message += "[邮件包含HTML内容]" / [Email contains HTML content]
-                                message += email_info['content']['html']
-                                
-                            # 发布消息到MQTT主题 / Publish message to MQTT topic
-                            mqtt_client.publish(MQTT_TOPIC, message)
-                            
-                            # 将邮件ID添加到已读列表 / Add email ID to read list
-                            read.append(email_id)
-                        # 邮件已处理过，跳过 / Email already processed, skip
-                        else:
-                            print(f"邮件ID {email_id} 已存在，跳过处理")
-                    # 断开MQTT连接 / Disconnect from MQTT
-                    # mqtt_client.loop_stop()  # 停止网络循环 / Stop network loop    
-                    
-                    # 更新最后处理的邮件ID / Update last processed email ID
-                    last_uid = new_emails[-1]['id']
+                        # 发布消息到MQTT主题 / Publish message to MQTT topic
+                        mqtt_client.publish(MQTT_TOPIC, message)
+                        
+                        # 将邮件ID添加到已读列表 / Add email ID to read list
+                        read.append(email_id)
+                    # 邮件已处理过，跳过 / Email already processed, skip
+                    else:
+                        print(f"邮件ID {email_id} 已存在，跳过处理")
                 
-                # 登出邮箱 / Logout from mailbox
-                mail.logout()
-            else:
-                print("无法连接到邮箱服务器")  # 连接失败提示 / Connection failure prompt
-                
+                # 更新最后处理的邮件ID / Update last processed email ID
+                last_uid = new_emails[-1]['id']
+            
             # 等待指定的检查间隔时间 / Wait for the specified check interval
             time.sleep(CHECK_INTERVAL)
             

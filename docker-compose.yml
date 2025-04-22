@@ -6,6 +6,16 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: email2mqtt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "https://localhost:8000/health"]
+      # 每30秒检查一次
+      interval: 30s
+      # 检查超时时间
+      timeout: 5s
+      # 连续失败3次后标记为不健康
+      retries: 3
+      # 启动后等待时间
+      start_period: 60s
     environment:
       - TZ=Asia/Shanghai
       - CHECK_INTERVAL=5
@@ -26,8 +36,3 @@ services:
     volumes:
       - ./ca.crt:/app/ca.crt 
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3

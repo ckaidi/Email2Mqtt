@@ -432,10 +432,8 @@ def main():
             
             # 等待指定的检查间隔时间 / Wait for the specified check interval
             time.sleep(CHECK_INTERVAL)
-            
-            # 打印当前时间 / Print current time
-            current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-            print(f"当前时间: {current_time}")
+
+            # 刷新标准输出缓冲区 / Flush standard output buffer
             sys.stdout.flush()
         # 捕获并记录异常 / Catch and log exceptions
         except Exception as e:
@@ -461,22 +459,12 @@ try:
     # 创建并启动子线程运行main函数
     t = threading.Thread(target=main, daemon=True)
     t.start()
-    
-    # 启动FastAPI服务
-    uvicorn.run(
-        app, 
-        host="0.0.0.0", 
-        port=8000,
-    )
 except KeyboardInterrupt:
     # 处理键盘中断（Ctrl+C） / Handle keyboard interrupt (Ctrl+C)
     print("程序退出")  # 程序退出提示 / Program exit prompt
 except Exception as e:
     # 处理其他异常 / Handle other exceptions
     print(f"程序异常退出: {e}")  # 异常退出日志 / Exception exit log
-
-# 最终退出提示 / Final exit prompt
-print("程序退出")
 
 if __name__ == '__main__':
     # 启动FastAPI服务
@@ -485,3 +473,5 @@ if __name__ == '__main__':
         host="0.0.0.0", 
         port=8000,
     )
+    # 最终退出提示 / Final exit prompt
+    print("程序退出")

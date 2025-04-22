@@ -17,7 +17,7 @@ ENV TZ=Asia/Shanghai
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=60s \
-    CMD curl -f https://localhost:8000/health || exit 1
+    CMD python healthcheck.py
 
 # 运行应用
 # 使用tail -f /dev/null保持容器运行

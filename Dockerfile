@@ -18,4 +18,4 @@ ENV TZ=Asia/Shanghai
 # 运行应用
 # 使用tail -f /dev/null保持容器运行
 # CMD ["sh", "-c", "tail -f /dev/null"]
-CMD [ "python", "app/main.py" ]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

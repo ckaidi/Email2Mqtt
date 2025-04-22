@@ -456,27 +456,32 @@ async def health_check():
     else:
         return {"status": "unhealthy", "thread_status": "dead"}, 400
 
-if __name__ == '__main__':
-    try:
-        import threading
-        # 创建并启动子线程运行main函数
-        t = threading.Thread(target=main, daemon=True)
-        t.start()
-        
-        # 启动FastAPI服务
-        uvicorn.run(
-            app, 
-            host="localhost", 
-            port=8000,
-            # ssl_keyfile="./ssl/cert.key",  # 替换为你的私钥路径
-            # ssl_certfile="./ssl/cert.pem",  # 替换为你的证书路径
-        )
-    except KeyboardInterrupt:
-        # 处理键盘中断（Ctrl+C） / Handle keyboard interrupt (Ctrl+C)
-        print("程序退出")  # 程序退出提示 / Program exit prompt
-    except Exception as e:
-        # 处理其他异常 / Handle other exceptions
-        print(f"程序异常退出: {e}")  # 异常退出日志 / Exception exit log
+try:
+    import threading
+    # 创建并启动子线程运行main函数
+    t = threading.Thread(target=main, daemon=True)
+    t.start()
     
-    # 最终退出提示 / Final exit prompt
-    print("程序退出")
+    # 启动FastAPI服务
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000,
+    )
+except KeyboardInterrupt:
+    # 处理键盘中断（Ctrl+C） / Handle keyboard interrupt (Ctrl+C)
+    print("程序退出")  # 程序退出提示 / Program exit prompt
+except Exception as e:
+    # 处理其他异常 / Handle other exceptions
+    print(f"程序异常退出: {e}")  # 异常退出日志 / Exception exit log
+
+# 最终退出提示 / Final exit prompt
+print("程序退出")
+
+if __name__ == '__main__':
+    # 启动FastAPI服务
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000,
+    )

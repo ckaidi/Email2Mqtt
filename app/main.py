@@ -43,8 +43,8 @@ logger.setLevel(logging.DEBUG)
 duplicate_filter = DuplicateMessageFilter()
 logger.addFilter(duplicate_filter)
 
-# 已读邮件ID列表 / List of read email IDs
-read = []
+# 已读邮件特征字典 / Dictionary of read email features
+read = {}  # 格式: {email_id: {'sender': sender_hash, 'subject': subject_hash, 'content': content_hash}}
 def connect_to_imap(timeout=30):
     """连接到IMAP服务器
     Connect to the IMAP server
@@ -394,10 +394,24 @@ def main():
                     email_id = email_info['id'].decode('utf-8') if isinstance(email_info['id'], bytes) else email_info['id']
                     
                     # 检查邮件是否已处理过 / Check if email has been processed before
-                    if email_id not in read:
-                        # 解析发件人信息 / Parse sender information
-                        sender_info = parse_sender(email_info['from'])
-                        
+                    sender_info = parse_sender(email_info['from'])
+                    
+                    # 计算邮件特征哈希值
+                    import hashlib
+                    sender_hash = hashlib.md5((sender_info['email'] + sender_info['name']).encode()).hexdigest()
+                    subject_hash = hashlib.md5(email_info['subject'].encode()).hexdigest()
+                    content_hash = hashlib.md5((email_info['content']['text'] + email_info['content']['html']).encode()).hexdigest()
+                    
+                    # 检查是否重复邮件
+                    is_duplicate = False
+                    if email_id in read:
+                        existing = read[email_id]
+                        if (existing['sender'] == sender_hash and 
+                            existing['subject'] == subject_hash and 
+                            existing['content'] == content_hash):
+                            is_duplicate = True
+                    
+                    if not is_duplicate:
                         # 打印邮件信息 / Print email information
                         print(f"邮件ID: {email_id}")
                         print(f"发件人名称: {sender_info['name']}")
@@ -421,11 +435,15 @@ def main():
                         # 发布消息到MQTT主题 / Publish message to MQTT topic
                         mqtt_client.publish(MQTT_TOPIC, message)
                         
-                        # 将邮件ID添加到已读列表 / Add email ID to read list
-                        read.append(email_id)
+                        # 将邮件特征添加到已读字典 / Add email features to read dictionary
+                        read[email_id] = {
+                            'sender': sender_hash,
+                            'subject': subject_hash,
+                            'content': content_hash
+                        }
                     # 邮件已处理过，跳过 / Email already processed, skip
-                    else:
-                        print(f"邮件ID {email_id} 已存在，跳过处理")
+                    # else:
+                    #     print(f"邮件ID {email_id} 已存在，跳过处理")
                 
                 # 更新最后处理的邮件ID / Update last processed email ID
                 last_uid = new_emails[-1]['id']

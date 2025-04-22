@@ -10,7 +10,7 @@ import requests  # 用于HTTP请求 / For HTTP requests
 import uvicorn
 import logging
 from fastapi import FastAPI
-from config import (  # 从配置文件导入配置 / Import configuration from config file
+from app.config import (  # 从配置文件导入配置 / Import configuration from config file
     IMAP_SERVER, USERNAME, PASSWORD, CHECK_INTERVAL,
     MQTT_BROKER, MQTT_PORT, MQTT_TOPIC,
     MQTT_SSL, MQTT_SSL_CA_CERTS, HTML_PROCESS_URL,

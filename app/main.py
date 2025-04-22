@@ -10,7 +10,9 @@ import requests  # 用于HTTP请求 / For HTTP requests
 import uvicorn
 import logging
 from fastapi import FastAPI
-from app.config import (  # 从配置文件导入配置 / Import configuration from config file
+import hashlib
+from typing import Any, Dict, List, Optional, Tuple
+from config import (  # 从配置文件导入配置 / Import configuration from config file
     IMAP_SERVER, USERNAME, PASSWORD, CHECK_INTERVAL,
     MQTT_BROKER, MQTT_PORT, MQTT_TOPIC,
     MQTT_SSL, MQTT_SSL_CA_CERTS, HTML_PROCESS_URL,
@@ -20,10 +22,10 @@ from app.config import (  # 从配置文件导入配置 / Import configuration f
 app = FastAPI()
 
 class DuplicateMessageFilter(logging.Filter):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.last_message = None
-        self.count = 0
+        self.last_message: Optional[str] = None
+        self.count: int = 0
 
     def filter(self, record):
         current_message = record.getMessage()
@@ -44,8 +46,8 @@ duplicate_filter = DuplicateMessageFilter()
 logger.addFilter(duplicate_filter)
 
 # 已读邮件特征字典 / Dictionary of read email features
-read = {}  # 格式: {email_id: {'sender': sender_hash, 'subject': subject_hash, 'content': content_hash}}
-def connect_to_imap(timeout=30):
+read: Dict[str, Dict[str, str]] = {}  # 格式: {email_id: {'sender': sender_hash, 'subject': subject_hash, 'content': content_hash}}
+def connect_to_imap(timeout: int = 30) -> Optional[imaplib.IMAP4_SSL]:
     """连接到IMAP服务器
     Connect to the IMAP server
     
@@ -78,7 +80,7 @@ def connect_to_imap(timeout=30):
         print(f"未知错误: {e}")
         return None
 
-def process_text_content(payload, charset):
+def process_text_content(payload: bytes, charset: str) -> str:
     """处理纯文本内容
     Process plain text content
     
@@ -95,7 +97,7 @@ def process_text_content(payload, charset):
         print(f"解码纯文本内容出错: {e}")
         return payload.decode('utf-8', 'replace')
 
-def process_html_content(payload, charset):
+def process_html_content(payload: bytes, charset: str) -> str:
     """处理HTML内容
     Process HTML content
     
@@ -122,7 +124,7 @@ def process_html_content(payload, charset):
         print(f"解码HTML内容出错: {e}")
         return payload.decode('utf-8', 'replace')
 
-def process_email_part(part, content_disposition):
+def process_email_part(part: email.message.Message, content_disposition: str) -> Dict[str, str]:
     """处理邮件的单个部分
     Process a single part of an email
     
@@ -154,7 +156,7 @@ def process_email_part(part, content_disposition):
         
     return content
 
-def extract_email_content(email_message):
+def extract_email_content(email_message: email.message.Message) -> Tuple[Dict[str, str], str]:
     """提取邮件内容（纯文本和HTML）
     Extract email content (plain text and HTML)
     
@@ -181,7 +183,12 @@ def extract_email_content(email_message):
     else:
         # 非多部分邮件
         content_type = email_message.get_content_type()
+        # 获取邮件内容并计算哈希值
         payload = email_message.get_payload(decode=True)
+        if payload:
+            content_hash = hashlib.md5(payload).hexdigest()
+        else:
+            content_hash = ''
         
         if payload:
             charset = email_message.get_content_charset() or 'utf-8'
@@ -191,9 +198,9 @@ def extract_email_content(email_message):
             elif content_type == 'text/html':
                 content['html'] = process_html_content(payload, charset)
     
-    return content
+    return content,content_hash
 
-def check_new_emails(mail, last_uid=None):
+def check_new_emails(mail: imaplib.IMAP4_SSL, last_uid: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
     """检查新邮件
     Check for new emails
     
@@ -229,13 +236,14 @@ def check_new_emails(mail, last_uid=None):
                 subject = subject.decode(encoding or 'utf-8')
             
             # 提取邮件正文
-            content = extract_email_content(email_message)
+            content,content_hash = extract_email_content(email_message)
                 
             new_emails.append({
                 'id': e_id,
                 'subject': subject,
                 'from': email_message['From'],
-                'content': content
+                'content': content,
+                'content_hash': content_hash
             })
             
         return new_emails
@@ -243,7 +251,7 @@ def check_new_emails(mail, last_uid=None):
         print(f"检查邮件出错: {e}")
         return None
 
-def parse_sender(sender):
+def parse_sender(sender: str) -> Dict[str, str]:
     """解析发件人信息
     Parse sender information
     
@@ -296,7 +304,7 @@ def parse_sender(sender):
             'email': sender
         }
 
-def on_connect(client, userdata, flags, rc):
+def on_connect(client: mqtt.Client, userdata: Any, flags: Dict[str, Any], rc: int) -> None:
     """MQTT连接回调函数
     MQTT connection callback function
     
@@ -311,7 +319,7 @@ def on_connect(client, userdata, flags, rc):
     else:
         print(f"MQTT连接失败，错误码: {rc}")
 
-def on_disconnect(client, userdata, rc):
+def on_disconnect(client: mqtt.Client, userdata: Any, rc: int) -> None:
     """MQTT断开连接回调函数
     MQTT disconnection callback function
     
@@ -326,7 +334,7 @@ def on_disconnect(client, userdata, rc):
         print("尝试重新连接...")
         client.reconnect()
 
-def main():
+def main() -> None:
     """主函数，程序入口点
     Main function, program entry point
     
@@ -385,9 +393,6 @@ def main():
             new_emails = check_new_emails(mail, last_uid)
             # 如果有新邮件，处理并发送到MQTT / If there are new emails, process and send to MQTT
             if new_emails:
-                # 打印发现的新邮件数量 / Print number of new emails found
-                print(f"发现 {len(new_emails)} 封新邮件:")
-                
                 # 处理每封新邮件 / Process each new email
                 for email_info in new_emails:
                     # 获取邮件ID，确保是字符串格式 / Get email ID, ensure it's in string format
@@ -400,7 +405,7 @@ def main():
                     import hashlib
                     sender_hash = hashlib.md5((sender_info['email'] + sender_info['name']).encode()).hexdigest()
                     subject_hash = hashlib.md5(email_info['subject'].encode()).hexdigest()
-                    content_hash = hashlib.md5((email_info['content']['text'] + email_info['content']['html']).encode()).hexdigest()
+                    content_hash = email_info['content_hash']
                     
                     # 检查是否重复邮件
                     is_duplicate = False

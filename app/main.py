@@ -12,12 +12,21 @@ import logging
 from fastapi import FastAPI
 import hashlib
 from typing import Any, Dict, List, Optional, Tuple
-from config import (  # 从配置文件导入配置 / Import configuration from config file
-    IMAP_SERVER, USERNAME, PASSWORD, CHECK_INTERVAL,
-    MQTT_BROKER, MQTT_PORT, MQTT_TOPIC,
-    MQTT_SSL, MQTT_SSL_CA_CERTS, HTML_PROCESS_URL,
-    MQTT_USERNAME, MQTT_PASSWORD  # MQTT认证信息 / MQTT authentication info
-)
+try:
+    from app.config import (  # 从配置文件导入配置 / Import configuration from config file
+        IMAP_SERVER, USERNAME, PASSWORD, CHECK_INTERVAL,
+        MQTT_BROKER, MQTT_PORT, MQTT_TOPIC,
+        MQTT_SSL, MQTT_SSL_CA_CERTS, HTML_PROCESS_URL,
+        MQTT_USERNAME, MQTT_PASSWORD  # MQTT认证信息 / MQTT authentication info
+    )
+except ImportError:
+    # 如果app.config导入失败,尝试直接导入config
+    from config import (
+        IMAP_SERVER, USERNAME, PASSWORD, CHECK_INTERVAL,
+        MQTT_BROKER, MQTT_PORT, MQTT_TOPIC,
+        MQTT_SSL, MQTT_SSL_CA_CERTS, HTML_PROCESS_URL,
+        MQTT_USERNAME, MQTT_PASSWORD
+    )
 
 app = FastAPI()
 

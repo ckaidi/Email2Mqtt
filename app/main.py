@@ -7,13 +7,41 @@ import socket  # 网络套接字操作 / Network socket operations
 from email.header import decode_header  # 解码邮件头 / Decode email headers
 import paho.mqtt.client as mqtt  # MQTT客户端 / MQTT client
 import requests  # 用于HTTP请求 / For HTTP requests
+import uvicorn
+import logging
+from fastapi import FastAPI
 from config import (  # 从配置文件导入配置 / Import configuration from config file
     IMAP_SERVER, USERNAME, PASSWORD, CHECK_INTERVAL,
     MQTT_BROKER, MQTT_PORT, MQTT_TOPIC,
-    MQTT_SSL, MQTT_SSL_CA_CERTS,
-    HEALTHY_URL, HTML_PROCESS_URL,
+    MQTT_SSL, MQTT_SSL_CA_CERTS, HTML_PROCESS_URL,
     MQTT_USERNAME, MQTT_PASSWORD  # MQTT认证信息 / MQTT authentication info
 )
+
+app = FastAPI()
+
+class DuplicateMessageFilter(logging.Filter):
+    def __init__(self):
+        super().__init__()
+        self.last_message = None
+        self.count = 0
+
+    def filter(self, record):
+        current_message = record.getMessage()
+        if current_message == self.last_message:
+            self.count += 1
+            if self.count>=60:
+                self.count = 0
+                return True
+            return False
+        else:
+            self.last_message = current_message
+            self.count = 0
+            return True
+
+logger = logging.getLogger('uvicorn')
+logger.setLevel(logging.DEBUG)
+duplicate_filter = DuplicateMessageFilter()
+logger.addFilter(duplicate_filter)
 
 # 已读邮件ID列表 / List of read email IDs
 read = []
@@ -340,14 +368,6 @@ def main():
     
     while True:
         try:
-            # 健康检查 / Health check
-            if HEALTHY_URL != '':
-                try:
-                    # 发送心跳ping / Send heartbeat ping
-                    requests.get(HEALTHY_URL, timeout=5)
-                except Exception as e:
-                    print(f"心跳ping失败: {e}")  # 心跳失败日志 / Heartbeat failure log
-
             # 检查邮箱连接是否有效 / Check if mailbox connection is valid
             try:
                 # 尝试执行一个简单的IMAP命令来检查连接 / Try to execute a simple IMAP command to check connection
@@ -422,10 +442,35 @@ def main():
             print(f"程序异常: {e}")  # 异常日志 / Exception log
     # mqtt_client.disconnect()
 
+
+@app.get('/')
+async def index():
+    from . import __version__
+    return 'version:' +__version__
+
+@app.get('/health')
+async def health_check():
+    # 检查子线程是否存活
+    if 't' in globals() and t.is_alive():
+        return {"status": "healthy", "thread_status": "alive"}
+    else:
+        return {"status": "unhealthy", "thread_status": "dead"}, 400
+
 if __name__ == '__main__':
     try:
-        # 启动主函数 / Start main function
-        main()
+        import threading
+        # 创建并启动子线程运行main函数
+        t = threading.Thread(target=main, daemon=True)
+        t.start()
+        
+        # 启动FastAPI服务
+        uvicorn.run(
+            app, 
+            host="localhost", 
+            port=8000,
+            # ssl_keyfile="./ssl/cert.key",  # 替换为你的私钥路径
+            # ssl_certfile="./ssl/cert.pem",  # 替换为你的证书路径
+        )
     except KeyboardInterrupt:
         # 处理键盘中断（Ctrl+C） / Handle keyboard interrupt (Ctrl+C)
         print("程序退出")  # 程序退出提示 / Program exit prompt

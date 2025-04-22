@@ -94,7 +94,6 @@ Email2MQTT is configured using environment variables. These can be set in the `d
 
 | Variable | Description | Default |
 |----------|-------------|--------|
-| `HEALTHY_URL` | Health check URL for monitoring service status | `''` (empty string) |
 | `HTML_PROCESS_URL` | HTML processing URL for handling HTML content in emails | `''` (empty string) |
 
 ## Message Format
@@ -140,7 +139,6 @@ services:
       - MQTT_USERNAME=your_mqtt_username
       - MQTT_PASSWORD=your_mqtt_password
       # URL configuration
-      - HEALTHY_URL=''
       - HTML_PROCESS_URL=''
     volumes:
       - ./ca.crt:/app/ca.crt 

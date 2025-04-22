@@ -33,6 +33,4 @@ MQTT_SSL_CA_CERTS = get_env_var('MQTT_SSL_CA_CERTS', 'ca.crt')  # CA证书路径
 MQTT_USERNAME = get_env_var('MQTT_USERNAME')  # MQTT用户名 / MQTT username
 MQTT_PASSWORD = get_env_var('MQTT_PASSWORD')  # MQTT密码 / MQTT password
 
-HEALTHY_URL=get_env_var('HEALTHY_URL','')  # 健康检查URL / Health check URL
-
 HTML_PROCESS_URL=get_env_var('HTML_PROCESS_URL','')  # HTML处理URL / HTML processing URL

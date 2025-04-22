@@ -92,7 +92,6 @@ Email2MQTT 使用环境变量进行配置。这些变量可以在 `docker-compos
 
 | 变量 | 描述 | 默认值 |
 |----------|-------------|--------|
-| `HEALTHY_URL` | 健康检查 URL，用于监控服务状态 | `''` (空字符串) |
 | `HTML_PROCESS_URL` | HTML 处理 URL，用于处理邮件中的 HTML 内容 | `''` (空字符串) |
 
 ## 消息格式
@@ -138,7 +137,6 @@ services:
       - MQTT_USERNAME=your_mqtt_username
       - MQTT_PASSWORD=your_mqtt_password
       # URL配置
-      - HEALTHY_URL=''
       - HTML_PROCESS_URL=''
     volumes:
       - ./ca.crt:/app/ca.crt 
